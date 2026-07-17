@@ -392,6 +392,74 @@ def test_eye(n_rows, n_cols, kw):
         raise
 
 
+
+@given(x=hh.arrays(dtype=hh.numeric_dtypes, shape=hh.matrix_shapes()), data=st.data())
+def test_tril(x, data):
+    n, m = x.shape[-2:]
+    k = data.draw(
+        st.integers(min_value=-max(n, m, 1), max_value=max(n, m, 1)),
+        label="k",
+    )
+    repro_snippet = ph.format_snippet(f"xp.tril({x!r}, k={k!r})")
+    try:
+        out = xp.tril(x, k=k)
+        ph.assert_dtype("tril", in_dtype=x.dtype, out_dtype=out.dtype)
+        ph.assert_shape("tril", out_shape=out.shape, expected=x.shape)
+        zero = xp.asarray(0, dtype=out.dtype)
+        expected_elements = [
+                x[idx] if idx[-1] <= idx[-2] + k 
+                else zero
+                for idx in sh.ndindex(x.shape)
+        ]
+        if expected_elements:
+            expected = xp.stack(expected_elements)
+        else:
+            # xp.stack does not accept an empty sequence, and the dtype cannot
+            # be inferred when there are no elements, so use out.dtype explicitly.
+            expected = xp.asarray([], dtype=out.dtype)
+        expected = xp.reshape(expected, x.shape)
+        ph.assert_array_elements(
+            "tril",
+            out=out,
+            expected=expected,
+        )
+    except Exception as exc:
+        ph.add_note(exc, repro_snippet)
+        raise
+
+
+@given(x=hh.arrays(dtype=hh.numeric_dtypes, shape=hh.matrix_shapes()), data=st.data())
+def test_triu(x, data):
+    n, m = x.shape[-2:]
+    k = data.draw(
+        st.integers(min_value=-max(n, m, 1), max_value=max(n, m, 1)),
+        label="k",
+    )
+    repro_snippet = ph.format_snippet(f"xp.triu({x!r}, k={k!r})")
+    try:
+        out = xp.triu(x, k=k)
+        ph.assert_dtype("triu", in_dtype=x.dtype, out_dtype=out.dtype)
+        ph.assert_shape("triu", out_shape=out.shape, expected=x.shape)
+        zero = xp.asarray(0, dtype=out.dtype)
+        expected_elements = [
+                x[idx] if idx[-1] >= idx[-2] + k 
+                else zero
+                for idx in sh.ndindex(x.shape)
+        ]
+        if expected_elements:
+            expected = xp.stack(expected_elements)
+        else:
+            expected = xp.asarray([], dtype=out.dtype)
+        expected = xp.reshape(expected, x.shape)
+        ph.assert_array_elements(
+            "triu",
+            out=out,
+            expected=expected,
+        )
+    except Exception as exc:
+        ph.add_note(exc, repro_snippet)
+        raise
+
 default_unsafe_dtypes = [xp.uint64]
 if dh.default_int == xp.int32:
     default_unsafe_dtypes.extend([xp.uint32, xp.int64])
